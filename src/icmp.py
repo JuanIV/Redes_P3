@@ -10,10 +10,14 @@ from threading import Lock
 import struct
 
 ICMP_PROTO = 1
-
+ICMP_HEADER_SIZE = 8
 
 ICMP_ECHO_REQUEST_TYPE = 8
 ICMP_ECHO_REPLY_TYPE = 0
+
+ICMP_CODE = 0
+ICMP_IDENTIFIER = 3
+ICMP_SEQUENCE_NUM_INIT = 0
 
 timeLock = Lock()
 icmp_send_times = {}
@@ -47,6 +51,26 @@ def process_ICMP_message(us,header,data,srcIp):
         Retorno: Ninguno
           
     '''
+
+    # Mínimo contiene la cabecera
+    if len(data) < ICMP_HEADER_SIZE or chksum(data) != 0: return None
+
+    tipo = int.from_bytes(data[0], 'big')
+    code = int.from_bytes(data[1], 'big')
+    identifier = int.from_bytes(data[2:4], 'big')
+    sequenceNumber = int.from_bytes(data[4:6], 'big')
+
+    logging.debug("ICMP -> Tipo: %d, Código: %d\n", tipo, code)
+
+    if tipo == ICMP_ECHO_REPLY_TYPE:
+        with timeLock:
+            if (srcIp, identifier, sequenceNumber) in icmp_send_times:
+                diff = header.ts.tv_sec + header.ts.tv_usec/1e6 - icmp_send_times.pop((srcIp, identifier, sequenceNumber))
+
+        print('RTT estimado: {}\n'.format(diff))
+
+    elif tipo == ICMP_ECHO_REQUEST_TYPE:
+        sendICMPMessage(data[ICMP_HEADER_SIZE:], ICMP_ECHO_REPLY_TYPE, code, identifier, sequenceNumber, srcIp)
     
 
 def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
@@ -78,8 +102,21 @@ def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
         Retorno: True o False en función de si se ha enviado el mensaje correctamente o no
           
     '''
+
+    if type != ICMP_ECHO_REPLY_TYPE and type != ICMP_ECHO_REQUEST_TYPE: return False
   
     icmp_message = bytes()
+    icmp_message += struct.pack('!BBHHH', type, code, 0, icmp_id, icmp_seqnum)
+    icmp_message += data
+
+    checksum = chksum(icmp_message)
+    icmp_message = icmp_message[:2] + struct.pack('!H', checksum) + icmp_message[4:]
+
+    if type == ICMP_ECHO_REQUEST_TYPE:
+        with timeLock:
+            icmp_send_times[(dstIP, icmp_id, icmp_seqnum)] = time.time()
+
+    return sendIPDatagram(dstIP, icmp_message if len(icmp_message) % 2 == 0 else icmp_message + bytes([0]), ICMP_PROTO)
    
 def initICMP():
     '''
@@ -93,3 +130,5 @@ def initICMP():
         Retorno: Ninguno
           
     '''
+
+    registerIPProtocol(process_ICMP_message, ICMP_PROTO)
