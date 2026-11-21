@@ -9,15 +9,33 @@ from ethernet import *
 from arp import *
 from fcntl import ioctl
 import subprocess
+from arp import *
 SIOCGIFMTU = 0x8921
 SIOCGIFNETMASK = 0x891b
 #Diccionario de protocolos. Las claves con los valores numéricos de protocolos de nivel superior a IP
 #por ejemplo (1, 6 o 17) y los valores son los nombres de las funciones de callback a ejecutar.
 protocols={}
+#IP de la interfaz
+myIp = None
+#IPID
+ipId = None
+#Opciones de IP
+ipOpts = None
+#Tamaño máximo de bloque
+MTU = None
+#
+netmask = None
+#
+defaultGW = None
+
 #Tamaño mínimo de la cabecera IP
 IP_MIN_HLEN = 20
 #Tamaño máximo de la cabecera IP
 IP_MAX_HLEN = 60
+#Ethertype de un datagrama IP
+IP_ETHERTYPE = 0x0800
+
+NUM_PAREJA = 3
 def chksum(msg):
     '''
         Nombre: chksum
@@ -122,6 +140,7 @@ def process_IP_datagram(us,header,data,srcMac):
         Retorno: Ninguno
     '''
 
+    
 
 
 
@@ -148,8 +167,11 @@ def registerIPProtocol(callback,protocol):
         Retorno: Ninguno 
     '''
 
+    global protocols
+    protocols[protocol] = callback
+
 def initIP(interface,opts=None):
-    global myIP, MTU, netmask, defaultGW,ipOpts
+    global myIP, MTU, netmask, defaultGW,ipOpts,ipId
     '''
         Nombre: initIP
         Descripción: Esta función inicializará el nivel IP. Esta función debe realizar, al menos, las siguientes tareas:
@@ -167,6 +189,26 @@ def initIP(interface,opts=None):
             -opts: array de bytes con las opciones a nivel IP a incluir en los datagramas o None si no hay opciones a añadir
         Retorno: True o False en función de si se ha inicializado el nivel o no
     '''
+    if interface is None: return False
+
+    if initARP(interface) == -1: return False
+
+    myIp = getIp(interface)
+    MTU = getMTU(interface)
+    netmask = getNetmask(interface)
+    defaultGW = getDefaultGW(interface)
+
+    if myIp is None or MTU is None or netmask is None or defaultGW is None: return False
+    
+    ipOpts = opts
+
+    registerEthCallback(process_IP_datagram, IP_ETHERTYPE)
+
+    ipId = NUM_PAREJA
+
+    return True
+
+
 
 def sendIPDatagram(dstIP,data,protocol):
     global IPID
