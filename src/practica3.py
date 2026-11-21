@@ -22,8 +22,7 @@ import socket
 DST_PORT = 53
 ICMP_ECHO_REQUEST_TYPE = 8
 ICMP_ECHO_REQUEST_CODE = 0
-# TODO: Cambiar ICMP_ID según enunciado
-ICMP_ID = 0
+ICMP_ID = 3
 
 ipRROption = bytes([7,11,4,0,0,0,0,0,0,0,0,0])
 
@@ -36,6 +35,7 @@ if __name__ == "__main__":
 	parser.add_argument('--debug', dest='debug', default=False, action='store_true',help='Activar Debug messages')
 	parser.add_argument('--addOptions', dest='addOptions', default=False, action='store_true',help='Añadir opciones a los datagranas IP')
 	parser.add_argument('--dataFile',dest='dataFile',default = False,help='Fichero con datos a enviar')
+	parser.add_argument('--icmpsize',dest='icmpsize', type = int, default = False,help='Tamaño en bytes de los paquetes ICMP a enviar')
 	#TODO: Opción --icmpsize
 	args = parser.parse_args()
 
@@ -67,7 +67,12 @@ if __name__ == "__main__":
 			udp_data = data.encode()
 	
 	icmp_data = b'ABCDEFGHIJKL'
-	#TODO: construir mensaje ICMP según opción --icmpsize
+	if args.icmpsize is not False:
+		if args.icmpsize < 0:
+			logging.error('El tamaño ICMP no puede ser negativo')
+			sys.exit(-1)
+		letras = b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+		icmp_data = (letras * (args.icmpsize // len(letras) + 1))[:args.icmpsize]
 	
 	startEthernetLevel(args.interface)
 	initICMP()
