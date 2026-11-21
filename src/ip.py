@@ -112,9 +112,11 @@ def getDefaultGW(interface):
         Retorno: Entero de 32 bits con la IP del gateway
     '''
     p = subprocess.Popen(['ip r | grep default | awk \'{print $3}\''], stdout=subprocess.PIPE, shell=True)
-    dfw = p.stdout.read().decode('utf-8')
+    dfw = p.stdout.read().decode('utf-8').strip()
     print(dfw)
-    return struct.unpack('!I',socket.inet_aton(dfw))[0]
+    if not dfw:
+        return None
+    return struct.unpack('!I', socket.inet_aton(dfw))[0]
 
 #Devuelve el nibble más significativo dentro de un byte
 def getMsn(byte):
@@ -234,7 +236,7 @@ def registerIPProtocol(callback,protocol):
     protocols[protocol] = callback
 
 def initIP(interface,opts=None):
-    global myIP, MTU, netmask, defaultGW,ipOpts,ipId
+    global myIp, MTU, netmask, defaultGW,ipOpts,ipId
     '''
         Nombre: initIP
         Descripción: Esta función inicializará el nivel IP. Esta función debe realizar, al menos, las siguientes tareas:
@@ -256,7 +258,7 @@ def initIP(interface,opts=None):
 
     if initARP(interface) == -1: return False
 
-    myIp = getIp(interface)
+    myIp = getIP(interface)
     MTU = getMTU(interface)
     netmask = getNetmask(interface)
     defaultGW = getDefaultGW(interface)
@@ -274,7 +276,7 @@ def initIP(interface,opts=None):
 
 
 def sendIPDatagram(dstIP,data,protocol):
-    global ipId, defaultGW, netmask
+    global myIp, ipId, defaultGW, netmask
     '''
         Nombre: sendIPDatagram
         Descripción: Esta función construye un datagrama IP y lo envía. En caso de que los datos a enviar sean muy grandes la función
