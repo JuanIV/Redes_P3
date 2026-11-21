@@ -12,21 +12,28 @@ import subprocess
 from arp import *
 SIOCGIFMTU = 0x8921
 SIOCGIFNETMASK = 0x891b
-#Diccionario de protocolos. Las claves con los valores numéricos de protocolos de nivel superior a IP
-#por ejemplo (1, 6 o 17) y los valores son los nombres de las funciones de callback a ejecutar.
+# Diccionario de protocolos. Las claves con los valores numéricos de protocolos de nivel superior a IP
+# por ejemplo (1, 6 o 17) y los valores son los nombres de las funciones de callback a ejecutar.
 protocols={}
-#IP de la interfaz
+# IP de la interfaz
 myIp = None
-#IPID
+# IPID
 ipId = None
-#Opciones de IP
+# Opciones de IP
 ipOpts = None
-#Tamaño máximo de bloque
+# Tamaño máximo de bloque
 MTU = None
-#
+# Máscara de red local
 netmask = None
-#
+# 
 defaultGW = None
+
+#Versión IP
+IP_VERSION = 0x4
+#Type of service
+TOS_DEF = 1
+#Time to live
+TTL_DEF = 40
 
 #Tamaño mínimo de la cabecera IP
 IP_MIN_HLEN = 20
@@ -34,6 +41,7 @@ IP_MIN_HLEN = 20
 IP_MAX_HLEN = 60
 #Ethertype de un datagrama IP
 IP_ETHERTYPE = 0x0800
+
 
 NUM_PAREJA = 3
 def chksum(msg):
@@ -108,7 +116,13 @@ def getDefaultGW(interface):
     print(dfw)
     return struct.unpack('!I',socket.inet_aton(dfw))[0]
 
+#Devuelve el nibble más significativo dentro de un byte
+def getMsn(byte):
+    return (byte>>4 & 0xF)
 
+#Devuelve el nibble menos significativo dentro de un byte
+def getLsn(byte):
+    return byte & 0xF
 
 def process_IP_datagram(us,header,data,srcMac):
     '''
@@ -140,7 +154,56 @@ def process_IP_datagram(us,header,data,srcMac):
         Retorno: Ninguno
     '''
 
-    
+    global myIp, MTU, protocols
+
+    # Se descarta un datagrama en caso de que sea demasiado grande
+    if len(data) > MTU or len(data) < 1: return
+
+    version = getMsn(data[0])
+    ihl = getLsn(data[0]) * 4
+
+    # En caso de cabecera mal formateada se descarta
+    if ihl < IP_MIN_HLEN or ihl > IP_MAX_HLEN or ihl > len(data): return
+    if chksum(data[:ihl]) != 0: return
+
+    tos = data[1]
+    totalLength = int.from_bytes(data[2:4], 'big')
+    curIPID = int.from_bytes(data[4:6], 'big')
+    flagsAndOffset = int.from_bytes(data[6:8], 'big')
+    df = flagsAndOffset & 1<<14
+    mf = flagsAndOffset & 1<<13
+    offset = flagsAndOffset & 0x1FFF
+    # Descartamos reensamblado
+    if offset != 0: return
+    ttl = data[8]
+    protocol = data[9]
+    ipOrig = data[12:16]
+    ipDest = data[16:20]
+
+    logging.debug(
+                "Longitud de cabecera: {}\n"
+                "IPID: {}\n"
+                "TTL: {}\n"
+                "DF: {}\n"
+                "MF: {}\n"
+                "Offset: {}\n"
+                "IP origen: {}\n"
+                "IP destino: {}\n"
+                "Protocolo: {}\n\n".
+                format(
+                    ihl,
+                    curIPID,
+                    ttl, 
+                    df, 
+                    mf, 
+                    offset, 
+                    '.'.join(['{}'.format(b) for b in ipOrig]), 
+                    '.'.join(['{}'.format(b) for b in ipDest]), 
+                    protocol)
+                )
+
+    if protocol in protocols:
+        protocols[protocol](us, header, data[ihl:], int.from_bytes(ipOrig, 'big'))
 
 
 
@@ -200,7 +263,7 @@ def initIP(interface,opts=None):
 
     if myIp is None or MTU is None or netmask is None or defaultGW is None: return False
     
-    ipOpts = opts
+    if opts is not None: ipOpts = opts 
 
     registerEthCallback(process_IP_datagram, IP_ETHERTYPE)
 
@@ -211,7 +274,7 @@ def initIP(interface,opts=None):
 
 
 def sendIPDatagram(dstIP,data,protocol):
-    global IPID
+    global ipId, defaultGW, netmask
     '''
         Nombre: sendIPDatagram
         Descripción: Esta función construye un datagrama IP y lo envía. En caso de que los datos a enviar sean muy grandes la función
@@ -235,7 +298,60 @@ def sendIPDatagram(dstIP,data,protocol):
         Retorno: True o False en función de si se ha enviado el datagrama correctamente o no
           
     '''
-    ip_header = bytes()
 
+    ihl = 20 + 4*( (len(ipOpts)+3) //4) if ipOpts is not None else 20
+
+    dataSize = MTU - ihl
+    dataSize = (dataSize // 8) * 8
+
+    # Función techo, si no cabe hace falta mandar uno más
+    nFragments = (len(data) + dataSize - 1) // dataSize 
+
+    optsInFragment = None
+    if (ipOpts is not None):
+        relleno = (4 - (len(ipOpts) % 4)) % 4
+        optsInFragment = ipOpts + bytes(relleno)
+
+    totalSize = len(data)
+    offset = 0
+
+    if myIp & netmask == dstIP & netmask:
+        dstMac = ARPResolution(dstIP)
+    else:
+        dstMac = ARPResolution(defaultGW)
+
+    if dstMac is None: return False
+
+    for x in range(1,nFragments+1) : 
+        ipHeader = bytes([IP_VERSION<<4 | ihl//4, TOS_DEF])
+        dataSentSize = min(totalSize, dataSize)
+        fragmentSize = dataSentSize + ihl
+        dataInFragment = data[offset*8: offset*8 + dataSentSize]
+
+        ipHeader += fragmentSize.to_bytes(2, 'big')
+        ipHeader += ipId.to_bytes(2, 'big')
+
+        MF = 1 if x<nFragments else 0
+        flagsAndOffset = offset | MF<<13
+        ipHeader += flagsAndOffset.to_bytes(2, 'big')
+        ipHeader += TTL_DEF.to_bytes(1, 'big')
+        ipHeader += bytes([protocol])
+       
+        ipHeader += bytes(2)
+        
+        ipHeader += myIp.to_bytes(4, 'big')
+        ipHeader += dstIP.to_bytes(4, 'big')
+
+        if optsInFragment is not None: ipHeader += optsInFragment
+
+        checksum = chksum(ipHeader)
+        ipHeader = ipHeader[:10] + checksum.to_bytes(2, 'big') + ipHeader[12:]
+
+        if sendEthernetFrame(ipHeader + dataInFragment, len(ipHeader) + len(dataInFragment), IP_ETHERTYPE, dstMac) == -1: return False
+
+        totalSize -= dataSentSize
+        offset += dataSize // 8 
+
+    ipId+=1
 
 
