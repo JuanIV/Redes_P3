@@ -9,6 +9,8 @@
 
 from udp import *
 from icmp import *
+from ethernet import *
+from ethmsg import *
 import sys
 import binascii
 import signal
@@ -73,8 +75,17 @@ if __name__ == "__main__":
 			sys.exit(-1)
 		letras = b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 		icmp_data = (letras * (args.icmpsize // len(letras) + 1))[:args.icmpsize]
+
+	#Inicializamos el nivel Ethernet en la interfaz especificada
+	if (startEthernetLevel(args.interface) != 0):
+		logging.error('Ethernet no inicializado')
+		sys.exit(-1)
 	
-	startEthernetLevel(args.interface)
+	if (initEthMsg(args.interface) != 0):
+		logging.error('EthMsg no inicializado')
+		stopEthernetLevel()
+		sys.exit(-1)
+
 	if initIP(args.interface,ipOpts) == False:
 		logging.error('Inicializando nivel IP')
 		sys.exit(-1)

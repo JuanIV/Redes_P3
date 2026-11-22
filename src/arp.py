@@ -270,6 +270,7 @@ def initARP(interface:str) -> int:
 
     myMAC = getHwAddr(interface)
     myIP = getIP(interface)
+    
     if myMAC is None or myIP is None: return -1
     registerEthCallback(process_arp_frame, ARP_ETHERTYPE)
     

@@ -165,14 +165,15 @@ def process_IP_datagram(us,header,data,srcMac):
     ihl = getLsn(data[0]) * 4
     # En caso de cabecera mal formateada se descarta
     if ihl < IP_MIN_HLEN or ihl > IP_MAX_HLEN or ihl > len(data): return
-    
-    #if chksum(data[:ihl]) != 0: return
+
+    if chksum(data[:ihl]) != 0: return
     tos = data[1]
     totalLength = int.from_bytes(data[2:4], 'big')
+    if totalLength < ihl or totalLength > len(data): return
     curIPID = int.from_bytes(data[4:6], 'big')
     flagsAndOffset = int.from_bytes(data[6:8], 'big')
-    df = flagsAndOffset & 1<<14
-    mf = flagsAndOffset & 1<<13
+    df = flagsAndOffset>>14 & 1
+    mf = flagsAndOffset>>13 & 1
     offset = flagsAndOffset & 0x1FFF
     # Descartamos reensamblado
     if offset != 0: return
@@ -204,7 +205,7 @@ def process_IP_datagram(us,header,data,srcMac):
                 )
 
     if protocol in protocols:
-        protocols[protocol](us, header, data[ihl:], int.from_bytes(ipOrig, 'big'))
+        protocols[protocol](us, header, data[ihl:totalLength], int.from_bytes(ipOrig, 'big'))
 
 
 
@@ -324,35 +325,38 @@ def sendIPDatagram(dstIP,data,protocol):
     if dstMac is None: return False
 
     for x in range(1,nFragments+1) : 
-        ipHeader = bytes([IP_VERSION<<4 | ihl//4, TOS_DEF])
         dataSentSize = min(totalSize, dataSize)
         fragmentSize = dataSentSize + ihl
-        dataInFragment = data[offset*8: offset*8 + dataSentSize]
-
-        ipHeader += fragmentSize.to_bytes(2, 'big')
-        ipHeader += ipId.to_bytes(2, 'big')
 
         MF = 1 if x<nFragments else 0
         flagsAndOffset = offset | MF<<13
-        ipHeader += flagsAndOffset.to_bytes(2, 'big')
-        ipHeader += TTL_DEF.to_bytes(1, 'big')
-        ipHeader += bytes([protocol])
-       
-        ipHeader += bytes(2)
-        
-        ipHeader += myIp.to_bytes(4, 'big')
-        ipHeader += dstIP.to_bytes(4, 'big')
+
+        ipHeader = bytes()
+        ipHeader += struct.pack('!BBHHHBBHII', 
+                                IP_VERSION << 4 | (ihl // 4), 
+                                TOS_DEF,
+                                fragmentSize,
+                                ipId,
+                                flagsAndOffset,
+                                TTL_DEF,
+                                protocol,
+                                0,
+                                myIp,
+                                dstIP)
 
         if optsInFragment is not None: ipHeader += optsInFragment
-
+        
         checksum = chksum(ipHeader)
-        ipHeader = ipHeader[:10] + checksum.to_bytes(2, 'big') + ipHeader[12:]
+        ipHeader = ipHeader[:10] + checksum.to_bytes(2, 'little') + ipHeader[12:]
+        
+        dataInFragment = data[offset*8: offset*8 + dataSentSize]
 
         if sendEthernetFrame(ipHeader + dataInFragment, len(ipHeader) + len(dataInFragment), IP_ETHERTYPE, dstMac) == -1: return False
 
         totalSize -= dataSentSize
         offset += dataSize // 8 
 
-    ipId+=1
+    ipId = (ipId + 1) & 0xFFFF
 
+    return True
 
