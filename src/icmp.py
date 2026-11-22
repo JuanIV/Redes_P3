@@ -52,26 +52,32 @@ def process_ICMP_message(us,header,data,srcIp):
           
     '''
 
-    # Mínimo contiene la cabecera
-    if len(data) < ICMP_HEADER_SIZE or chksum(data) != 0: return None
+    global myIP
 
-    tipo = int.from_bytes(data[0], 'big')
-    code = int.from_bytes(data[1], 'big')
+    # Mínimo contiene la cabecera
+    #if len(data) < ICMP_HEADER_SIZE or chksum(data) != 0: return None
+    if len(data) < ICMP_HEADER_SIZE: return None
+
+    tipo = int.from_bytes(data[0:1], 'big')
+    code = int.from_bytes(data[1:2], 'big')
     identifier = int.from_bytes(data[2:4], 'big')
     sequenceNumber = int.from_bytes(data[4:6], 'big')
+
+    #print("{} {} {} {}".format(tipo, code, identifier, sequenceNumber))
 
     logging.debug("ICMP -> Tipo: %d, Código: %d\n", tipo, code)
 
     if tipo == ICMP_ECHO_REPLY_TYPE:
+        #print(icmp_send_times)
+        #print('{} {} {}\n'.format(myIP, identifier, sequenceNumber))
         with timeLock:
-            if (srcIp, identifier, sequenceNumber) in icmp_send_times:
+            if (myIP, identifier, sequenceNumber) in icmp_send_times:
                 diff = header.ts.tv_sec + header.ts.tv_usec/1e6 - icmp_send_times.pop((srcIp, identifier, sequenceNumber))
-
-        print('RTT estimado: {}\n'.format(diff))
+                print('RTT estimado: {}\n'.format(diff))
 
     elif tipo == ICMP_ECHO_REQUEST_TYPE:
         sendICMPMessage(data[ICMP_HEADER_SIZE:], ICMP_ECHO_REPLY_TYPE, code, identifier, sequenceNumber, srcIp)
-    
+        print('Recibido ECHO REQUEST: {}'.format('.'.join(str(b) for b in srcIp.to_bytes(4, 'big'))))
 
 def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
     '''
@@ -102,9 +108,9 @@ def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
         Retorno: True o False en función de si se ha enviado el mensaje correctamente o no
           
     '''
-
+    
     if type != ICMP_ECHO_REPLY_TYPE and type != ICMP_ECHO_REQUEST_TYPE: return False
-  
+    
     icmp_message = bytes()
     icmp_message += struct.pack('!BBHHH', type, code, 0, icmp_id, icmp_seqnum)
     icmp_message += data
@@ -115,7 +121,7 @@ def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
     if type == ICMP_ECHO_REQUEST_TYPE:
         with timeLock:
             icmp_send_times[(dstIP, icmp_id, icmp_seqnum)] = time.time()
-
+    
     return sendIPDatagram(dstIP, icmp_message if len(icmp_message) % 2 == 0 else icmp_message + bytes([0]), ICMP_PROTO)
    
 def initICMP():

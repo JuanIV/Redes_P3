@@ -75,11 +75,12 @@ if __name__ == "__main__":
 		icmp_data = (letras * (args.icmpsize // len(letras) + 1))[:args.icmpsize]
 	
 	startEthernetLevel(args.interface)
-	initICMP()
-	initUDP()
 	if initIP(args.interface,ipOpts) == False:
 		logging.error('Inicializando nivel IP')
 		sys.exit(-1)
+		
+	initICMP()
+	initUDP()
 
 	
 	

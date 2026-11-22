@@ -163,11 +163,10 @@ def process_IP_datagram(us,header,data,srcMac):
 
     version = getMsn(data[0])
     ihl = getLsn(data[0]) * 4
-
     # En caso de cabecera mal formateada se descarta
     if ihl < IP_MIN_HLEN or ihl > IP_MAX_HLEN or ihl > len(data): return
-    if chksum(data[:ihl]) != 0: return
-
+    
+    #if chksum(data[:ihl]) != 0: return
     tos = data[1]
     totalLength = int.from_bytes(data[2:4], 'big')
     curIPID = int.from_bytes(data[4:6], 'big')
@@ -183,7 +182,7 @@ def process_IP_datagram(us,header,data,srcMac):
     ipDest = data[16:20]
 
     logging.debug(
-                "Longitud de cabecera: {}\n"
+                "\nLongitud de cabecera: {}\n"
                 "IPID: {}\n"
                 "TTL: {}\n"
                 "DF: {}\n"

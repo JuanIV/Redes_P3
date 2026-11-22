@@ -70,8 +70,6 @@ def process_Ethernet_frame(us:ctypes.c_void_p,header:pcap_pkthdr,data:bytes) -> 
             -Ninguno
     '''
     global macAddress
-    if (len(data) < ETH_FRAME_MIN):
-        return
 
     ethDestIni, ethDestFin = ETH_DEST_POS
     macDest = data[ethDestIni: ethDestFin + 1]
