@@ -37,3 +37,33 @@ IMPLEMENTACION:
 
 PRUEBAS:
 
+ PRUEBAS DE UDP:
+  Para comprobar que el protocolo UDP funciona correctamente, se hacen los dos tipos de
+  pruebas que indica el enunciado:
+
+   * Prueba dentro de la subred (doc/tests_udp/DentroDeSubred):
+     - Primera prueba (Envío básico de datagrama entre h1 y h2):
+        Las capturas muestran cómo se envía un datagrama desde h1 y se recibe en h2
+     - Segunda prueba (--addOptions):
+        En la captura se ve que la información mostrada en ambos hosts es la esperada
+     - Tercera prueba (--dataFile con MTU estándar):
+        Para esta prueba y la siguiente se ha usado el fichero doc/tests_udp/textFileo.txt
+        que tiene exactamente 4000 caracteres. En la primera captura se ve el envío del 
+        datagrama desde h1 y cómo h2 recibe el contenido del fichero. En las siguientes
+        dos capturas se ven los paquetes que se recibieron en wireshark (abierto en una
+        terminal de h2), que tienen el contenido fragmentado del fichero.
+     - Cuarta prueba (--dataFile con MTU = 658):
+        En la primera captura se ve el envío del datagrama desde h1 a h2 y cómo se cambió
+        el valor del MTU en h1. En la siguiente captura se ven los paquetes que se 
+        recivieron, teniendo el último paquete de los 7 que se formaron seleccionado
+        para ver que termina igual que termina el fichero de texto.
+
+    * Pruebas fuera de la subred (doc/tests_udp/FueraDeSubred):
+      - SetupHosts.png: muestra la configuracion inicial de cada host.
+      - envioDatagrama.png: muestra cómo se envía un datagrama desde h1 a la dirección
+        8.8.8.8 con la que se ejecutó el programa.
+      - Paquete.png: muestra el paquete visto en wireshark que se envía a la dirección
+        8.8.8.8. Viendo el apartado de Destination, dentro de Ethernet II, se ve que 
+        la dirección destino es justo la MAC de 10.0.0.3, la gateway (se puede ver la 
+        MAC en la terminal de h1 de la derecha), que es justo lo que esperaríamos que
+        pasase.
