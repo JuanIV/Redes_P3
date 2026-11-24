@@ -1,0 +1,39 @@
+Pareja 3
+
+IMPLEMENTACION:
+
+- udp.py:
+
+  * Empaquetado y desempaquetado binario: Para construir y leer la cabecera UDP
+    de 8 bytes se ha utilizado la librería struct con el formato '!HHHH'
+    (big-endian / orden de red, 4 enteros sin signo de 16 bits para puerto
+    origen, puerto destino, longitud total y checksum).
+
+  * Gestión de tipos de datos: Como sendUDPDatagram puede recibir tanto cadenas
+    de texto (str) como secuencias de bytes (bytes), se ha normalizado la
+    entrada a bytes antes de calcular la longitud total (8 + len(data)) y
+    concatenar cabecera y carga útil.
+
+  * Checksum y puertos: Se obtiene el puerto origen dinámicamente llamando a
+    getUDPSourcePort() y se fija el checksum a 0 tal como permite IPv4 para
+    simplificar el envío. Al recibir un paquete por el protocolo 17, se extrae
+    el payload a partir del byte 8 y se vuelca la traza en logging.debug.
+
+
+- practica3.py:
+
+  * Se ha configurado ICMP_ID = 3 para identificar los mensajes ICMP generados
+    por nuestra pareja en las capturas.
+
+  * Generación dinámica del payload ICMP (--icmpsize): Se ha añadido el
+    argumento --icmpsize en argparse. Cuando se especifica un tamaño N, se
+    genera dinámicamente una cadena de N bytes recorriendo el abecedario en
+    mayúsculas ('A'-'Z'), codificándola a bytes para pasarla como datos al Echo Request.
+
+
+
+- titi, pones aqui lo tuyo
+
+
+PRUEBAS:
+
