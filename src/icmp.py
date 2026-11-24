@@ -65,7 +65,7 @@ def process_ICMP_message(us,header,data,srcIp):
 
     if tipo == ICMP_ECHO_REPLY_TYPE:
         with timeLock:
-            sentAt = icmp_send_times.pop((srcIp, identifier, sequenceNumber), None)
+            sentAt = icmp_send_times[(srcIp, identifier, sequenceNumber)]
         
         if sentAt is not None:
             diff = header.ts.tv_sec + header.ts.tv_usec/1e6 - sentAt
@@ -117,7 +117,7 @@ def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
     if type == ICMP_ECHO_REQUEST_TYPE:
         with timeLock:
             icmp_send_times[(dstIP, icmp_id, icmp_seqnum)] = time.time()
-    
+            
     return sendIPDatagram(dstIP, icmp_message if len(icmp_message) % 2 == 0 else icmp_message + bytes([0]), ICMP_PROTO)
    
 def initICMP():

@@ -188,7 +188,7 @@ def process_IP_datagram(us,header,data,srcMac):
     df = flagsAndOffset>>14 & 1
     mf = flagsAndOffset>>13 & 1
     offset = flagsAndOffset & 0x1FFF
-    print("Recibe datagrama {}".format(offset))
+    
     # Descartamos reensamblado
     if offset != 0: return
     #ttl = data[8:9]
