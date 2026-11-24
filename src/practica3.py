@@ -67,7 +67,7 @@ if __name__ == "__main__":
 			data=f.read()
 			#Pasamos los datos de cadena a bytes
 			udp_data = data.encode()
-	
+			
 	icmp_data = b'ABCDEFGHIJKL'
 	if args.icmpsize is not False:
 		if args.icmpsize < 0:

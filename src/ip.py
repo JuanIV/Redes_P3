@@ -160,29 +160,44 @@ def process_IP_datagram(us,header,data,srcMac):
 
     # Se descarta un datagrama en caso de que sea demasiado grande
     if len(data) > MTU or len(data) < 1: return
+    
+    (versionAndIhl,
+        tos,
+        totalLength,
+        curIPID,
+        flagsAndOffset,
+        ttl,
+        protocol,
+        checksum,
+        ipOrig,
+        ipDest) = struct.unpack('!BBHHHBBHII', data[:IP_MIN_HLEN])
 
-    version = getMsn(data[0])
-    ihl = getLsn(data[0]) * 4
+    version = versionAndIhl>>4
+    ihl = (versionAndIhl & 0xF) * 4
     # En caso de cabecera mal formateada se descarta
+    
     if ihl < IP_MIN_HLEN or ihl > IP_MAX_HLEN or ihl > len(data): return
-
-    if chksum(data[:ihl]) != 0: return
-    tos = data[1]
-    totalLength = int.from_bytes(data[2:4], 'big')
+    
+    if chksum(data[:ihl]) != 0 or ipOrig == myIp: return
+    
+    #tos = data[1]
+    #totalLength = int.from_bytes(data[2:4], 'big')
     if totalLength < ihl or totalLength > len(data): return
-    curIPID = int.from_bytes(data[4:6], 'big')
-    flagsAndOffset = int.from_bytes(data[6:8], 'big')
+    #curIPID = int.from_bytes(data[4:6], 'big')
+    #flagsAndOffset = int.from_bytes(data[6:8], 'big')
     df = flagsAndOffset>>14 & 1
     mf = flagsAndOffset>>13 & 1
     offset = flagsAndOffset & 0x1FFF
+    print("Recibe datagrama {}".format(offset))
     # Descartamos reensamblado
     if offset != 0: return
-    ttl = data[8]
-    protocol = data[9]
-    ipOrig = data[12:16]
-    ipDest = data[16:20]
+    #ttl = data[8:9]
+    #protocol = data[9]
+    #ipOrig = data[12:16]
+    #ipDest = data[16:20]
 
     logging.debug(
+                "##### Datagrama IP registrado #####"
                 "\nLongitud de cabecera: {}\n"
                 "IPID: {}\n"
                 "TTL: {}\n"
@@ -199,13 +214,14 @@ def process_IP_datagram(us,header,data,srcMac):
                     df, 
                     mf, 
                     offset, 
-                    '.'.join(['{}'.format(b) for b in ipOrig]), 
-                    '.'.join(['{}'.format(b) for b in ipDest]), 
+                    '.'.join(['{}'.format(b) for b in struct.pack('!I',ipOrig)]), 
+                    '.'.join(['{}'.format(b) for b in struct.pack('!I',ipDest)
+                    ]), 
                     protocol)
                 )
 
     if protocol in protocols:
-        protocols[protocol](us, header, data[ihl:totalLength], int.from_bytes(ipOrig, 'big'))
+        protocols[protocol](us, header, data[ihl:totalLength], ipOrig)
 
 
 
@@ -302,7 +318,7 @@ def sendIPDatagram(dstIP,data,protocol):
     '''
 
     ihl = 20 + 4*( (len(ipOpts)+3) //4) if ipOpts is not None else 20
-
+    
     dataSize = MTU - ihl
     dataSize = (dataSize // 8) * 8
 

@@ -61,9 +61,7 @@ def process_ICMP_message(us,header,data,srcIp):
     identifier = int.from_bytes(data[4:6], 'big')
     sequenceNumber = int.from_bytes(data[6:8], 'big')
 
-    #print("{} {} {} {}".format(tipo, code, identifier, sequenceNumber))
-
-    logging.debug("ICMP -> Tipo: %d, Código: %d\n", tipo, code)
+    logging.debug("##### Mensaje ICMP registrado #####\nICMP -> Tipo: %d, Código: %d\n", tipo, code)
 
     if tipo == ICMP_ECHO_REPLY_TYPE:
         with timeLock:
