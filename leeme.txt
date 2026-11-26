@@ -57,11 +57,19 @@ PRUEBAS:
         el valor del MTU en h1. En la siguiente captura se ven los paquetes que se 
         recivieron, teniendo el último paquete de los 7 que se formaron seleccionado
         para ver que termina igual que termina el fichero de texto.
+        
+
         Nota sobre Wireshark en fragmentación UDP al puerto 53: al reensamblar el
         paquete dirigido al puerto 53, Wireshark intenta interpretarlo como DNS y
         marca el paquete reensamblado como [Malformed Packet] porque el payload es
         texto plano, no una trama DNS. El funcionamiento de fragmentación,
         reensamblado y entrega en h2 es correcto y se comprueba en los logs de h2.
+
+        También, en la terminal de h2, solo se muestra el primer fragmento del texto
+        recibido, debido a que en ip, si el offset no es 0 se descarta, pero lo que 
+        nos confirma que llegó el mensaje entero es la indicación que pone al 
+        principio: "Longitud: 4078". Hay 78 caracteres nuevos que no teníamos en el
+        texto original porque los caracteres especiales se sustituyen por otros varios.
 
     * Pruebas fuera de la subred (doc/tests_udp/FueraDeSubred):
       - SetupHosts.png: muestra la configuracion inicial de cada host.
