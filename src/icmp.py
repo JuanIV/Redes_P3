@@ -61,6 +61,10 @@ def process_ICMP_message(us,header,data,srcIp):
     identifier = int.from_bytes(data[4:6], 'big')
     sequenceNumber = int.from_bytes(data[6:8], 'big')
 
+    if (chksum(data) != 0):
+        logging.debug("##### Error en checksum ICMP #####")
+        return
+
     logging.debug("##### Mensaje ICMP registrado #####\nICMP -> Tipo: %d, Código: %d\n", tipo, code)
 
     if tipo == ICMP_ECHO_REPLY_TYPE:

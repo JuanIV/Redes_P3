@@ -174,27 +174,17 @@ def process_IP_datagram(us,header,data,srcMac):
 
     version = versionAndIhl>>4
     ihl = (versionAndIhl & 0xF) * 4
-    # En caso de cabecera mal formateada se descarta
     
+    # En caso de cabecera mal formateada se descarta
     if ihl < IP_MIN_HLEN or ihl > IP_MAX_HLEN or ihl > len(data): return
     
     if chksum(data[:ihl]) != 0 or ipOrig == myIp: return
     
-    #tos = data[1]
-    #totalLength = int.from_bytes(data[2:4], 'big')
     if totalLength < ihl or totalLength > len(data): return
-    #curIPID = int.from_bytes(data[4:6], 'big')
-    #flagsAndOffset = int.from_bytes(data[6:8], 'big')
+    
     df = flagsAndOffset>>14 & 1
     mf = flagsAndOffset>>13 & 1
     offset = flagsAndOffset & 0x1FFF
-    
-    # Descartamos reensamblado
-    if offset != 0: return
-    #ttl = data[8:9]
-    #protocol = data[9]
-    #ipOrig = data[12:16]
-    #ipDest = data[16:20]
 
     logging.debug(
                 "##### Datagrama IP registrado #####"
@@ -219,6 +209,9 @@ def process_IP_datagram(us,header,data,srcMac):
                     ]), 
                     protocol)
                 )
+
+    # Descartamos reensamblado
+    if offset != 0: return
 
     if protocol in protocols:
         protocols[protocol](us, header, data[ihl:totalLength], ipOrig)
