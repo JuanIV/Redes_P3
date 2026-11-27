@@ -47,16 +47,14 @@ PRUEBAS:
      - Segunda prueba (--addOptions):
         En la captura se ve que la información mostrada en ambos hosts es la esperada
      - Tercera prueba (--dataFile con MTU estándar):
-        Para esta prueba y la siguiente se ha usado el fichero doc/tests_udp/textFileo.txt
-        que tiene exactamente 4000 caracteres. En la primera captura se ve el envío del 
-        datagrama desde h1 y cómo h2 recibe el contenido del fichero. En las siguientes
-        dos capturas se ven los paquetes que se recibieron en wireshark (abierto en una
-        terminal de h2), que tienen el contenido fragmentado del fichero.
+        Para esta prueba y la siguiente se ha usado el fichero doc/tests_udp/textFile.txt
+        que tiene exactamente 4000 caracteres. En la captura se ve como desde h1 se
+        envía un datagrama y en h2 se reciben dos fragmentos, que también se ven como
+        paquetes entrantes en wireshark. Confirmamos que el paquete llega entero porque
+        vemos que pone "Longitud: 4009", que es la longitud de nuestro paquete
      - Cuarta prueba (--dataFile con MTU = 658):
-        En la primera captura se ve el envío del datagrama desde h1 a h2 y cómo se cambió
-        el valor del MTU en h1. En la siguiente captura se ven los paquetes que se 
-        recivieron, teniendo el último paquete de los 7 que se formaron seleccionado
-        para ver que termina igual que termina el fichero de texto.
+        De nuevo, se ve cómo tras cambiar el mtu de h1 a 658, ahora se reciben 7 
+        fragmentos en lugar de los 2 que se recibían antes.
         
 
         Nota sobre Wireshark en fragmentación UDP al puerto 53: al reensamblar el
@@ -64,12 +62,6 @@ PRUEBAS:
         marca el paquete reensamblado como [Malformed Packet] porque el payload es
         texto plano, no una trama DNS. El funcionamiento de fragmentación,
         reensamblado y entrega en h2 es correcto y se comprueba en los logs de h2.
-
-        También, en la terminal de h2, solo se muestra el primer fragmento del texto
-        recibido, debido a que en ip, si el offset no es 0 se descarta, pero lo que 
-        nos confirma que llegó el mensaje entero es la indicación que pone al 
-        principio: "Longitud: 4078". Hay 78 caracteres nuevos que no teníamos en el
-        texto original porque los caracteres especiales se sustituyen por otros varios.
 
     * Pruebas fuera de la subred (doc/tests_udp/FueraDeSubred):
       - SetupHosts.png: muestra la configuracion inicial de cada host.
